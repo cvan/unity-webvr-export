@@ -1,67 +1,43 @@
-/* global performance, webvrui */
+/* global gameInstance, mat4, performance, Promise, VRFrameData, webvrui */
 (function () {
   'use strict';
 
+  var canvas = null;
+  var containerEl = document.querySelector('#game');
+  var controllerClassName = 'controller-icon';
+  var controllerEl = document.querySelector('#webxr__motion-controller');
   var defaultHeight = 1.5;
   var enterEl = document.querySelector('#entervr');
-  var container = document.querySelector('#game');
-  var loaderEl = document.querySelector('#loader');
-  var statusEl = document.getElementById('webxr__status');
-  var icons = document.getElementById('#icons');
-  var controller = document.querySelector('#motion-controller');
-  var windowRaf = window.requestAnimationFrame;
-  var vrDisplay = null;
-  var canvas = null;
   var frameData = null;
+  var gamepads = [];
+  var iconsEl = document.getElementById('#webxr__icons');
+  var inFullscreen = false;
   var inVR = false;
   var isPresenting = false;
-  var testTimeStart = null;
   var leftProjectionMatrix = mat4.create();
-  var rightProjectionMatrix = mat4.create();
   var leftViewMatrix = mat4.create();
+  var loaderEl = document.querySelector('#loader');
+  var rightProjectionMatrix = mat4.create();
   var rightViewMatrix = mat4.create();
   var sitStand = mat4.create();
-  var gamepads = [];
+  var statusEl = document.getElementById('webxr__status');
+  var testTimeStart = null;
+  var vrDisplay = null;
   var vrGamepads = [];
-
-  var webxrUIEl = document.getElementById('webxr__ui');
-  var webxrHelpEl = document.getElementById('webxr__help');
-  var exitEl = document.getElementById('webxr__exit');
-  var learnEl = document.getElementById('webxr__learn');
   var webxrButtonEl = document.getElementById('webxr__button');
-  var webxrButtonUI
-
-  var webxrButtonUI = new webvrui.EnterVRButton(renderer.domElement, {
-    color: '#111',
-    background: '#fff',
-    corners: 'round'
-  }).on('enter', function () {
-    console.log('enter VR');
-  }).on('exit', function () {
-    console.log('exit VR');
-  }).on('error', function (err) {
-    learnEl.style.display = 'inline';
-    console.error(error)
-  })
-  .on('hide', function () {
-      webxrUIEl.classList.add('hidden');
-      // On iOS there is no button to close fullscreen mode, so we need to provide one.
-      if (enterVR.state == webvrui.State.PRESENTING_FULLSCREEN) {
-        exitEl.style.display = 'initial';
-      }
-  })
-  .on('show', function () {
-    webxrUIEl.classList.remove('hidden');
-    exitEl.style.display = 'none';
-  });
-  webxrButtonEl.appendChild(uiButton.domElement);
+  var webxrButtonUI = null;
+  var webxrExitEl = document.getElementById('webxr__exit');
+  var webxrHelpEl = document.getElementById('webxr__help');
+  var webxrLearnEl = document.getElementById('webxr__learn');
+  var webxrUIEl = document.getElementById('webxr__ui');
+  var windowRaf = window.requestAnimationFrame;
 
   function onReady () {
     if (!navigator.getVRDisplays) {
       console.warn('Your browser does not support WebVR!');
       return;
     }
-    return navigator.getVRDisplays().then(function (displays) {
+    return (navigator.xr ? navigator.xr.requestDevice : navigator.getVRDisplays)().then(function (displays) {
       if (!Array.isArray(displays)) {
         vrDisplay = displays;
       }
@@ -72,7 +48,31 @@
         return;
       }
 
+      webxrButtonUI = new webvrui.EnterVRButton(canvas, {
+        color: '#111',
+        corners: 'round',
+        background: '#fff'
+      }).on('enter', function () {
+        console.log('[webvrui] enter VR');
+      }).on('exit', function () {
+        console.log('[webvrui] exit VR');
+      }).on('error', function (err) {
+        webxrLearnEl.removeClass('hidden');
+        console.error('[webvrui] error:', err);
+      })
+      .on('hide', function () {
+        webxrUIEl.classList.add('hidden');
 
+        // On iOS there is no button to exit fullscreen mode, so we need to provide one.
+        if (enterVR.state === webvrui.State.PRESENTING_FULLSCREEN) {
+          webxrExitEl.removeClass('hidden');
+        }
+      })
+      .on('show', function () {
+        webxrUIEl.classList.remove('hidden');
+        webxrExitEl.classList.add('hidden');
+      });
+      webxrButtonEl.appendChild(webxrButtonUI.domElement);
 
       // Check to see if we are polyfilled.
       if (vrDisplay.isPolyfilled) {
@@ -80,7 +80,13 @@
       } else {
         statusEl.dataset.enabled = true;
       }
+
       onResize();
+
+      if (!('VRFrameData' in window)) {
+        throw new Error('Could not find `VRFrameData`');
+      }
+
       onAnimate();
 
       if (vrDisplay.capabilities && vrDisplay.capabilities.canPresent) {
@@ -110,35 +116,43 @@
     }
   }
 
-  function exitVR (force) {
-    if (!force && !inVR) {
-      enterVR();
-      return();
-    }
-    inVR = false;
-    if (uiButton) {
-      uiButton.requestExit();
-    }
-    if (vrDisplay.isPresenting) {
-      vrDisplay.exitPresent();
-      isPresenting = false;
-    }
-
-    // Start stereo rendering in Unity.
-    gameInstance.SendMessage('WebVRCameraSet', 'End');
-
-    onResize();
+  function enterFullscreen (force) {
+    return new Promise(function (resolve, reject) {
+      if (!force && inFullscreen) {
+        return resolve(new Error('Already in fullscreen'));
+      }
+      if (!webxrButtonUI) {
+        throw new Error('Could not find `webxrButtonUI` helper for entering fullscreen');
+      }
+      return webxrButtonUI.requestEnterFullscreen().then(function () {
+        inFullscreen = true;
+        resolve(true);
+      }, function (err) {
+        reject(err);
+      }).catch(function (err) {
+        reject(err);
+      });
+    });
   }
 
-  function enterFullscreen (force) {
-    if (!force && inFullscreen) {
-      return Promise.resolve(new Error('Already in fullscreen'));
-    }
-    if (!uiButton) {
-      throw new Error('Could not find `uiButton` for entering fullscreen');
-    }
-    return uiButton.requestEnterFullscreen();
-  });
+  function exitFullscreen (force) {
+    return new Promise(function (resolve, reject) {
+      if (!force && !inFullscreen) {
+        return resolve(new Error('Not in fullscreen'));
+      }
+      if (!webxrButtonUI) {
+        throw new Error('Could not find `webxrButtonUI` helper for entering fullscreen');
+      }
+      return webxrButtonUI.requestExit().then(function () {
+        inFullscreen = false;
+        resolve(true);
+      }, function (err) {
+        reject(err);
+      }).catch(function (err) {
+        reject(err);
+      });
+    });
+  }
 
   function enterVR (force) {
     if (!force && inVR) {
@@ -148,15 +162,16 @@
 
     inVR = true;
     if (vrDisplay.capabilities && vrDisplay.capabilities.canPresent) {
-      return vrDisplay.requestPresent([
-        {source: canvas}
-      ]).then(function () {
+      return (webxrButtonUI ?
+        webxrButtonUI.requestPresent(vrDisplay, canvas) :
+        vrDisplay.requestPresent([{source: canvas}])
+      ).then(function () {
         var leftEye = vrDisplay.getEyeParameters('left');
         var rightEye = vrDisplay.getEyeParameters('right');
         var renderWidth = Math.max(leftEye.renderWidth, rightEye.renderWidth) * 2;
         var renderHeight = Math.max(leftEye.renderHeight, rightEye.renderHeight);
-        canvas.width = Math.max(leftEye.renderWidth, rightEye.renderWidth) * 2;
-        canvas.height = Math.max(leftEye.renderHeight, rightEye.renderHeight);
+        canvas.width = renderWidth;
+        canvas.height = renderHeight;
         onResize();
         isPresenting = true;
 
@@ -168,6 +183,29 @@
 
     // Start stereo rendering in Unity.
     gameInstance.SendMessage('WebVRCameraSet', 'Begin');
+  }
+
+  function exitVR (force) {
+    if (!force && !inVR) {
+      return enterVR();
+    }
+
+    inVR = false;
+
+    if (vrDisplay.isPresenting) {
+      return (webxrButtonUI ? webxrButtonUI.requestExit : vrDisplay.exitPresent)().then(function () {
+        isPresenting = false;
+
+        // Start stereo rendering in Unity.
+        gameInstance.SendMessage('WebVRCameraSet', 'End');
+
+        onResize();
+      });
+    }
+
+    onResize();
+
+    return Promise.resolve(false);
   }
 
   function onAnimate () {
@@ -263,11 +301,11 @@
       var renderHeight = canvas.height;
       var scaleX = window.innerWidth / renderWidth;
       var scaleY = window.innerHeight / renderHeight;
-      container.setAttribute('style', `transform: scale(${scaleX}, ${scaleY}); transform-origin: top left;`);
+      containerEl.setAttribute('style', 'transform: scale(' + scaleX + ',' + scaleY + '); transform-origin: top left;');
     } else {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
-      container.style.transform = '';
+      containerEl.style.transform = '';
     }
   }
 
@@ -281,6 +319,9 @@
     // `Esc` exits VR.
     if (evt.keyCode === keys.Esc) {
       exitVR();
+      if (inFullscreen) {
+        exitFullscreen();
+      }
       return;
     }
 
@@ -298,6 +339,7 @@
     }
   }
 
+  /*
   function showInstruction (el) {
     var confirmButton = el.querySelector('button');
     el.dataset.enabled = true;
@@ -306,21 +348,22 @@
       el.dataset.enabled = false;
       confirmButton.removeEventListener('click', onConfirm);
     }
-  };
+  }
+  */
 
   function updateStatus () {
     if (parseInt(statusEl.dataset.gamepads, 10) !== vrGamepads.length) {
-      var controllerClassName = 'controller-icon';
-      var controlIcons = icons.getElementsByClassName(controllerClassName);
-      while (controlIcons.length > 0) {
-        controlIcons[0].parentNode.removeChild(controlIcons[0]);
-      };
+      var controlIconsEl = iconsEl.getElementsByClassName(controllerClassName);
+      while (controlIconsEl.length > 0) {
+        controlIconsEl[0].parentNode.removeChild(controlIconsEl[0]);
+      }
 
-      vrGamepads.forEach(function (gamepad, i) {
-        var controllerIcon = document.importNode(controller.content, true);
-        controllerIcon.querySelector('img').className = controllerClassName;
-        icons.appendChild(controllerIcon);
+      vrGamepads.forEach(function (gamepad) {
+        var controllerIconEl = document.importNode(controllerEl.content, true);
+        controllerIconEl.querySelector('img').className = controllerClassName;
+        iconsEl.appendChild(controllerIconEl);
       });
+
       statusEl.dataset.gamepads = vrGamepads.length;
     }
   }
@@ -354,8 +397,8 @@
       webxrHelpEl.addEventListener('click', enterFullscreen);
     }
 
-    if (exitEl) {
-      exitEl.addEventListener('click', exitVR);
+    if (webxrExitEl) {
+      webxrExitEl.addEventListener('click', exitVR);
     }
   }
 
