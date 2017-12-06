@@ -3,20 +3,20 @@
   'use strict';
 
   var canvas = null;
-  var containerEl = document.querySelector('#game');
+  var containerEl = document.getElementById('game');
   var controllerClassName = 'controller-icon';
-  var controllerEl = document.querySelector('#webxr__motion-controller');
+  var controllerEl = document.getElementById('webxr__icons__motion-controller');
   var defaultHeight = 1.5;
-  var enterEl = document.querySelector('#entervr');
+  var enterEl = document.getElementById('entervr');
   var frameData = null;
   var gamepads = [];
-  var iconsEl = document.getElementById('#webxr__icons');
+  var iconsEl = document.getElementById('webxr__icons');
   var inFullscreen = false;
   var inVR = false;
   var isPresenting = false;
   var leftProjectionMatrix = mat4.create();
   var leftViewMatrix = mat4.create();
-  var loaderEl = document.querySelector('#loader');
+  var loaderEl = document.getElementById('loader');
   var rightProjectionMatrix = mat4.create();
   var rightViewMatrix = mat4.create();
   var sitStand = mat4.create();
@@ -57,7 +57,7 @@
       }).on('exit', function () {
         console.log('[webvrui] exit VR');
       }).on('error', function (err) {
-        webxrLearnEl.removeClass('hidden');
+        webxrLearnEl.classList.remove('hidden');
         console.error('[webvrui] error:', err);
       })
       .on('hide', function () {
@@ -65,7 +65,7 @@
 
         // On iOS there is no button to exit fullscreen mode, so we need to provide one.
         if (enterVR.state === webvrui.State.PRESENTING_FULLSCREEN) {
-          webxrExitEl.removeClass('hidden');
+          webxrExitEl.classList.remove('hidden');
         }
       })
       .on('show', function () {
@@ -76,7 +76,7 @@
 
       // Check to see if we are polyfilled.
       if (vrDisplay.isPolyfilled) {
-        // showInstruction(document.querySelector('#novr'));
+        // showInstruction(document.getElementById('novr'));
       } else {
         statusEl.dataset.enabled = true;
       }
@@ -352,20 +352,24 @@
   */
 
   function updateStatus () {
-    if (parseInt(statusEl.dataset.gamepads, 10) !== vrGamepads.length) {
-      var controlIconsEl = iconsEl.getElementsByClassName(controllerClassName);
-      while (controlIconsEl.length > 0) {
-        controlIconsEl[0].parentNode.removeChild(controlIconsEl[0]);
-      }
-
-      vrGamepads.forEach(function (gamepad) {
-        var controllerIconEl = document.importNode(controllerEl.content, true);
-        controllerIconEl.querySelector('img').className = controllerClassName;
-        iconsEl.appendChild(controllerIconEl);
-      });
-
-      statusEl.dataset.gamepads = vrGamepads.length;
+    if (parseInt(statusEl.dataset.gamepads, 10) === vrGamepads.length) {
+      return false;
     }
+
+    var controlIconsEl = iconsEl.getElementsByClassName(controllerClassName);
+    while (controlIconsEl.length > 0) {
+      controlIconsEl[0].parentNode.removeChild(controlIconsEl[0]);
+    }
+
+    vrGamepads.forEach(function (gamepad) {
+      var controllerIconEl = document.importNode(controllerEl.content, true);
+      controllerIconEl.querySelector('img').className = controllerClassName;
+      iconsEl.appendChild(controllerIconEl);
+    });
+
+    statusEl.dataset.gamepads = vrGamepads.length;
+
+    return true;
   }
 
   function onRequestAnimationFrame (cb) {

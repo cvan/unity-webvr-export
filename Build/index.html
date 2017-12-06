@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en-us">
+<html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Unity-WebVR-Export</title>
+    <title>Unity WebVR Assets</title>
     <meta name="description" content="Unity-WebVR-Export">
     <link rel="stylesheet" type="text/css" href="webvr.css">
     <script src="Build/UnityLoader.js"></script>
@@ -39,25 +39,25 @@
       <div class="gameContainer" id="gameContainer"></div>
     </div>
 
-    <div class="webxr__ui__container" id="webxr__ui__container">
-      <div class="webxr__ui" id="webxr__ui">
-        <div class="webxr__button" id="webxr__button">Enter VR</div>
-        <div class="webxr__help" id="webxr__help">
-          <a class="webxr__enter" id="webxr__enter" href="#">Try it without a headset</a>
-          <span class="webxr__learn" id="webxr__learn">
-            <a class="webxr__setup" id="webxr__setup" href="https://webvr.rocks/" target="_blank" rel="noopener noreferrer">Need help?</a>
+    <div id="webxr__ui__container" class="webxr__ui__container">
+      <div id="webxr__ui" class="webxr__ui">
+        <div id="webxr__button" class="webxr__button">Enter VR</div>
+        <div id="webxr__help" class="webxr__help">
+          <a id="webxr__enter" class="webxr__enter" href="#">Try it without a headset</a>
+          <span id="webxr__learn" class="webxr__learn">
+            <a id="webxr__setup" class="webxr__setup" href="https://webvr.rocks/" target="_blank" rel="noopener noreferrer">Need help?</a>
           </span>
         </div>
       </div>
-      <a href="#" class="webxr__exit hidden" id="webxr__exit">&times;</a>
+      <a id="webxr__exit" class="webxr__exit hidden" href="#">&times;</a>
     </div>
 
-    <div id="vr">
+    <div id="vr" class="vr">
       <div id="webxr__status" class="webxr__status">
         <strong id="webxr__state" class="webxr__state">Ready!</strong>
         <div id="webxr__icons" class="webxr__icons">
-          <img src="vr.png" height="36" alt="VR headset">
-          <template id="webxr__motion-controller">
+          <img id="webvr__icons__vr" class="webvr__icons__vr" src="vr.png" height="36" alt="VR headset">
+          <template id="webxr__icons__motion-controller">
             <img src="motion-controllers.png" height="33" alt="VR motion controller">
           </template>
         </div>
