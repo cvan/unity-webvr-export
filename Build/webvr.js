@@ -2,6 +2,10 @@
 (function () {
   'use strict';
 
+  window.onerror = function (msg, url, line, column, error) {
+    body.setAttribute('data-error', msg + ' (Line: ' + line + '; Column: ' + column + '): ' + error);
+  };
+
   var canvas = null;
   var containerEl = document.getElementById('game');
   var controllerClassName = 'controller-icon';
