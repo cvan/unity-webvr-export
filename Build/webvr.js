@@ -7,7 +7,7 @@
   var status = document.querySelector('#status');
   var icons = document.querySelector('#icons');
   var controller = document.querySelector('#motion-controller');
-  // var windowRaf = window.requestAnimationFrame;
+  var windowRaf = window.requestAnimationFrame;
   var vrDisplay = null;
   var canvas = null;
   var frameData = null;
@@ -41,15 +41,15 @@
 
     // Wait for Unity to render frame, then submit to `vrDisplay`.
     if (msg.detail === 'PreRender') {
-      if (vrDisplay && vrDisplay.isPresenting) {
+      // if (vrDisplay && vrDisplay.isPresenting) {
         framesSent++;
-      }
+      // }
     }
 
     if (msg.detail === 'PostRender') {
-      if (vrDisplay && vrDisplay.isPresenting) {
+      // if (vrDisplay && vrDisplay.isPresenting) {
         framesRendered++;
-      }
+      // }
     }
   }
 
@@ -234,13 +234,13 @@
   // Unity drives its rendering from the window rAF; we'll reassign to use
   // `VRDisplay`'s rAF when presenting so that Unity renders at the
   // appropriate VR framerate.
-  // function onRequestAnimationFrame (cb) {
-  //   if (vrDisplay && vrDisplay.isPresenting) {
-  //     return vrDisplay.requestAnimationFrame(cb);
-  //   } else {
-  //     return windowRaf(cb);
-  //   }
-  // }
+  function onRequestAnimationFrame (cb) {
+    if (vrDisplay && vrDisplay.isPresenting) {
+      return vrDisplay.requestAnimationFrame(cb);
+    } else {
+      return windowRaf(cb);
+    }
+  }
 
   function isPolyfilled (display) {
     // Check to see if the VR device is polyfilled
@@ -291,7 +291,7 @@
   }
 
   // shim raf so that we can drive framerate using VR display.
-  // window.requestAnimationFrame = onRequestAnimationFrame;
+  window.requestAnimationFrame = onRequestAnimationFrame;
 
   window.addEventListener('resize', onResize, true);
   window.addEventListener('vrdisplaypresentchange', onResize, false);
