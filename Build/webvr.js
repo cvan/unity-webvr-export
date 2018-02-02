@@ -45,14 +45,17 @@
     // Wait for Unity to render frame, then submit to `vrDisplay`.
     if (detail === 'PreRender') {
       // if (vrDisplay && vrDisplay.isPresenting) {
-        framesSent++;
+        // framesSent++;
       // }
       return;
     }
 
     if (detail === 'PostRender') {
+      if (vrDisplay && vrDisplay.isPresenting) {
+        vrDisplay.submitFrame();
+      }
       // if (vrDisplay && vrDisplay.isPresenting) {
-        framesRendered++;
+        // framesRendered++;
       // }
     }
   }
@@ -260,7 +263,7 @@
   }
 
   function getVRDisplays () {
-    if (!navigator.getVRDisplays) {
+    if (!navigator.getVRDisplays || !window.VRFrameData) {
       var msg = 'Your browser does not support WebVR!';
       console.error(msg);
       if ('Promise' in window) {
@@ -270,28 +273,28 @@
 
     frameData = new VRFrameData();
 
-    var gotDevice = navigator.getVRDisplays().then(function (displays) {
-      if (displays && displays.length > 0) {
-        return displays[displays.length - 1];
+    var gotDevice = navigator.getVRDisplays().then(function (devices) {
+      if (devices && devices.length > 0) {
+        return devices[devices.length - 1];
       }
       return null;
     });
 
-    return gotDevice.then(function (display) {
-      vrDisplay = display;
+    return gotDevice.then(function (device) {
+      vrDisplay = device;
 
-      if (isDevicePolyfilled(display)) {
+      if (isDevicePolyfilled(device)) {
         showInstruction(document.querySelector('#novr'));
       } else {
         status.dataset.enabled = 'true';
       }
 
-      // Enables "Enter VR" button.
-      if (vrDisplay.capabilities.canPresent) {
+      // Enable the "Enter VR" button.
+      if (vrDisplay.capabilities && vrDisplay.capabilities.canPresent) {
         entervrButton.dataset.enabled = 'true';
       }
 
-      return display;
+      return device;
     });
   }
 
