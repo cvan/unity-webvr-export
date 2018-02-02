@@ -71,6 +71,9 @@
   }
 
   function onRequestPresent () {
+    if (vrDisplay.isPresenting) {
+      console.warn('Attempted to request presenting but was already presenting');
+    }
     vrDisplay.requestPresent([{source: canvas}]).then(function () {
       console.log('Successfully presented to VR');
       // Start stereo rendering in Unity.
@@ -79,6 +82,9 @@
   }
 
   function onExitPresent () {
+    if (!vrDisplay.isPresenting) {
+      console.warn('Attempted to stop presenting but was not presenting');
+    }
     vrDisplay.exitPresent().then(function (err) {
       console.error('Failed to present to VR', err);
     });
