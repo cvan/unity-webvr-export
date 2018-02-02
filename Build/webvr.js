@@ -8,7 +8,7 @@
   var status = document.querySelector('#status');
   var icons = document.querySelector('#icons');
   var controller = document.querySelector('#motion-controller');
-  // var windowRaf = window.requestAnimationFrame;
+  var windowRaf = window.requestAnimationFrame;
   var vrDisplay = null;
   var canvas = null;
   var frameData = null;
@@ -160,9 +160,9 @@
       };
       gameInstance.SendMessage('WebVRCameraSet', 'WebVRData', JSON.stringify(vrData));
       console.log('•', framesSent, framesRendered);
-      if (framesSent === framesRendered) {
+      // if (framesSent === framesRendered) {
         vrDisplay.submitFrame();
-      }
+      // }
     }
 
     updateStatus();
@@ -192,11 +192,15 @@
     }
   }
 
+  var keys = {
+    p: 80,
+    v: 86
+  }
+
   function onKeyDown (e) {
-    if (e.keyCode === 80) {  // `p` toggles performance counter.
+    if (e.keyCode === keys.p) {  // `p` toggles performance counter.
       gameInstance.SendMessage('WebVRCameraSet', 'TogglePerf');
-    }
-    if (e.keyCode === 86) {  // `v` tests round-trip time between the browser and instance of the Unity game.
+    } else if (e.keyCode === keys.v) {  // `v` tests round-trip time between the browser and instance of the Unity game.
       console.log('pressed v, roundtrip time');
       testTimeStart = window.performance.now();
       gameInstance.SendMessage('WebVRCameraSet', 'TestTime');
@@ -207,7 +211,7 @@
     var confirmButton = el.querySelector('button');
     el.dataset.enabled = true;
     confirmButton.addEventListener('click', onConfirm);
-    function onConfirm() {
+    function onConfirm () {
       el.dataset.enabled = false;
       confirmButton.removeEventListener('click', onConfirm);
     }
@@ -232,27 +236,27 @@
 
   // // Unity drives its rendering from the window `rAF`; we'll reassign to use `VRDisplay`'s `rAF` when presenting
   // // such that Unity renders at the appropriate VR framerate.
-  // function onRequestAnimationFrame (cb) {
-  //   if (vrDisplay && vrDisplay.isPresenting) {
-  //     return vrDisplay.requestAnimationFrame(cb);
-  //   } else {
-  //     return windowRaf(cb);
-  //   }
-  // }
+  function onRequestAnimationFrame (cb) {
+    if (vrDisplay && vrDisplay.isPresenting) {
+      return vrDisplay.requestAnimationFrame(cb);
+    } else {
+      return windowRaf(cb);
+    }
+  }
 
-  function isDevicePolyfilled (display) {
+  function isDevicePolyfilled (device) {
     // Check to see if the VR device is polyfilled
     // (i.e, using `webvr-polyfill`: https://github.com/googlevr/webvr-polyfill).
-    if (!display) {
+    if (!device) {
       return false;
     }
 
-    // Refer to https://github.com/immersive-web/cardboard-vr-display/blob/master/src/base.js
-    return display.isPolyfilled ||
-      (display.deviceId || '').indexOf('polyfill') > 0 ||
-      (display.displayName || '').indexOf('polyfill') > 0 ||
-      (display.deviceName || '').indexOf('polyfill') > 0 ||
-      display.hardwareUnitId;
+    // Feature detecting: https://github.com/immersive-web/cardboard-vr-display/blob/master/src/base.js
+    return device.isPolyfilled ||
+      (device.deviceId || '').indexOf('polyfill') > 0 ||
+      (device.displayName || '').indexOf('polyfill') > 0 ||
+      (device.deviceName || '').indexOf('polyfill') > 0 ||
+      device.hardwareUnitId;
   }
 
   function getVRDisplays () {
@@ -260,9 +264,10 @@
       var msg = 'Your browser does not support WebVR!';
       console.error(msg);
       if ('Promise' in window) {
-        return Promise.reject('Your browser does not support WebVR!');
+        return Promise.reject(msg);
       }
     }
+
     frameData = new VRFrameData();
 
     var gotDevice = navigator.getVRDisplays().then(function (displays) {
@@ -290,8 +295,8 @@
     });
   }
 
-  // shim raf so that we can drive framerate using VR display.
-  // window.requestAnimationFrame = onRequestAnimationFrame;
+  // shim `rAF` so that we can drive the framerate using the VR device.
+  window.requestAnimationFrame = onRequestAnimationFrame;
 
   window.addEventListener('resize', onResize, true);
   window.addEventListener('vrdisplaypresentchange', onResize, false);
