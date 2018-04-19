@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Links</title>
+    <meta name="description" content="Links – A-Frame">
+    <script src="../aframe-v0.8.2.min.js"></script>
+    <script src="js/components/aframe-tooltip-component.js"></script>
+    <script src="js/components/camera-position.js"></script>
+    <script src="js/components/ground.js"></script>
+    <script src="js/components/link-controls.js"></script>
+    <script src="shaders/skyGradient.js"></script>
+  </head>
+  <body>
+    <a-scene raycaster="far: 100; objects: [link]" cursor="rayOrigin: mouse" camera-position>
+      <a-assets>
+        <img id="arena" crossOrigin="anonymous" src="images/aframeArena.png">
+        <img id="thumbCity" crossOrigin="anonymous" src="images/thumbs/city.png">
+        <img id="thumbSunrise" crossOrigin="anonymous" src="images/thumbs/sunrise.png">
+        <img id="thumbMountains" crossOrigin="anonymous" src="images/thumbs/mountains.png">
+      </a-assets>
+      <a-link href="city.html" title="City" position="-3.5 1.5 -1.0" image="#thumbCity"></a-link>
+      <a-link href="sunrise.html" title="Sunrise" position="0 1.5 -1.0" image="#thumbSunrise"></a-link>
+      <a-link href="../../../Build/" title="Mountains" position="3.5 1.5 -1.0" image="#thumbMountains"></a-link>
+      <a-entity id="sky"
+                geometry="primitive: sphere; radius: 65"
+                material="shader: flat; color: #47c9ff; side: double"></a-entity>
+      <a-entity id="ground"
+                geometry="primitive: circle; radius: 8"
+                rotation="-90 0 0"
+                material="shader: flat; src: #arena"></a-entity>
+      <a-entity id="leftHand" link-controls="hand: left"></a-entity>
+      <a-entity id="rightHand" link-controls="hand: right"></a-entity>
+    </a-scene>
+  </body>
+</html>
