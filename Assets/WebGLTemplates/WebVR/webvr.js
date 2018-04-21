@@ -25,6 +25,7 @@
   var vrGamepads = [];
   var toggleVRKeyName = '';
   var vrPolyfill = new WebVRPolyfill();
+  var enterVRFromNavigate = false;
 
   if ('serviceWorker' in navigator && 'isSecureContext' in window && !window.isSecureContext) {
     console.warn('The site is insecure; Service Workers will not work and the site will not be recognized as a PWA');
@@ -45,7 +46,13 @@
     canvas = document.getElementById('#canvas');
     document.body.dataset.unityLoaded = 'true';
     onResize();
-    getVRDisplay();
+    if (enterVRFromNavigate) {
+      return onActivate();
+    }
+    if (!vrDisplay) {
+      return getVRDisplay();
+    }
+    return Promise.resolve(true);
   }
 
   function onUnity (msg) {
@@ -80,29 +87,32 @@
     }
   }
 
-  function onToggleVR() {
+  function onToggleVR () {
     if (vrDisplay && vrDisplay.isPresenting) {
       console.log('Toggled to exit VR mode');
-      onExitPresent();
+      return onExitPresent();
     } else {
       console.log('Toggled to enter VR mode');
-      onRequestPresent();
+      return onRequestPresent();
     }
   }
 
-  function onRequestPresent() {
-    if (!vrDisplay) {
-      throw new Error('No VR display available to enter VR mode');
-    }
-    if (!vrDisplay.capabilities || !vrDisplay.capabilities.canPresent) {
-      throw new Error('VR display is not capable of presenting');
-    }
-    return vrDisplay.requestPresent([{source: canvas}]).then(function () {
-      // Start stereo rendering in Unity.
-      console.log('Entered VR mode');
-      gameInstance.SendMessage('WebVRCameraSet', 'OnStartVR');
-    }).catch(function (err) {
-      console.error('Unable to enter VR mode:', err);
+  function onRequestPresent () {
+    return new Promise(function (resolve, reject) {
+      if (!vrDisplay) {
+        throw new Error('No VR display available to enter VR mode');
+      }
+      if (!vrDisplay.capabilities || !vrDisplay.capabilities.canPresent) {
+        throw new Error('VR display is not capable of presenting');
+      }
+      return vrDisplay.requestPresent([{source: canvas}]).then(function () {
+        // Start stereo rendering in Unity.
+        console.log('Entered VR mode');
+        gameInstance.SendMessage('WebVRCameraSet', 'OnStartVR');
+      }).catch(function (err) {
+        console.error('Unable to enter VR mode:', err);
+
+      });
     });
   }
 
@@ -304,11 +314,11 @@
 
   function getVRDisplay () {
     if (!navigator.getVRDisplays) {
-      console.warn('Your browser does not support WebVR');
-      return;
+      var err = new Error('Your browser does not support WebVR');
+      console.warn(err.message);
+      return Promise.reject(err);
     }
     frameData = new VRFrameData();
-
     return navigator.getVRDisplays().then(function(displays) {
       var canPresent = false;
       var hasPosition = false;
@@ -356,13 +366,37 @@
     }
   }
 
+  var onError = console.error.bind(console);
+
+  function onPresentChange () {
+    return onResize();
+  }
+
+  function onActivate () {
+    if (vrDisplay && vrDisplay.isPresenting) {
+      return Promise.resolve(false);
+    }
+    if (!vrDisplay) {
+      return getVRDisplay().then(onRequestPresent).catch(onError);
+    }
+    return onRequestPresent().catch(onError);
+  }
+
+  function onNavigate () {
+    enterVRFromNavigate = true;
+  }
+
+  function onDeactivate () {
+    return onExitPresent().catch(onError);
+  }
+
   // Monkeypatch `rAF` so that we can render at the VR display's framerate.
   window.requestAnimationFrame = onRequestAnimationFrame;
 
   window.addEventListener('resize', onResize, true);
-  window.addEventListener('vrdisplaypresentchange', onResize, false);
-  window.addEventListener('vrdisplayactivate', onRequestPresent, false);
-  window.addEventListener('vrdisplaydeactivate', onExitPresent, false);
+  window.addEventListener('vrdisplaypresentchange', onPresentChange, false);
+  window.addEventListener('vrdisplayactivate', onNavigate, false);
+  window.addEventListener('vrdisplaydeactivate', onDeactivate, false);
   window.addEventListener('keyup', onKeyUp, false);
   document.addEventListener('UnityLoaded', onUnityLoaded, false);
   document.addEventListener('Unity', onUnity);
