@@ -25,6 +25,7 @@
   var vrGamepads = [];
   var toggleVRKeyName = '';
   var vrPolyfill = new WebVRPolyfill();
+  var presentOnNavigation = false;
 
   if ('serviceWorker' in navigator && 'isSecureContext' in window && !window.isSecureContext) {
     console.warn('The site is insecure; Service Workers will not work and the site will not be recognized as a PWA');
@@ -41,12 +42,19 @@
   }
 
   function onUnityLoaded () {
+    console.log('onUnityLoaded');
     MozillaResearch.telemetry.performance.measure('LoadingTime', 'LoadingStart');
     canvas = document.getElementById('#canvas');
     document.body.dataset.unityLoaded = 'true';
     onResize();
-    getVRDisplay();
+    return getVRDisplay().then(function (display) {
+      document.dispatchEvent(new CustomEvent('VRDisplayReady'));
+    }).catch(function (err) {
+      console.error('Error occurred upon scene load:\n', err);
+    });
   }
+
+  var isSceneLoaded = false;
 
   function onUnity (msg) {
     // This way of passing messages is deprecated. Use rich objects instead.
@@ -64,6 +72,12 @@
         submitNextFrame = vrDisplay && vrDisplay.isPresenting;
         if (submitNextFrame) {
           vrDisplay.requestAnimationFrame(onAnimate);
+        }
+        if (isSceneLoaded) {
+          document.dispatchEvent(new CustomEvent('SceneLoaded'));
+          isSceneLoaded = false;
+        } else {
+          isSceneLoaded = true;
         }
       }
 
@@ -91,18 +105,20 @@
   }
 
   function onRequestPresent() {
-    if (!vrDisplay) {
-      throw new Error('No VR display available to enter VR mode');
-    }
-    if (!vrDisplay.capabilities || !vrDisplay.capabilities.canPresent) {
-      throw new Error('VR display is not capable of presenting');
-    }
-    return vrDisplay.requestPresent([{source: canvas}]).then(function () {
-      // Start stereo rendering in Unity.
-      console.log('Entered VR mode');
-      gameInstance.SendMessage('WebVRCameraSet', 'OnStartVR');
-    }).catch(function (err) {
-      console.error('Unable to enter VR mode:', err);
+    return new Promise(function (resolve, reject) {
+      if (!vrDisplay) {
+        return reject(new Error('No VR display available to enter VR mode'));
+      }
+      if (!vrDisplay.capabilities || !vrDisplay.capabilities.canPresent) {
+        return reject(new Error('VR display is not capable of presenting'));
+      }
+      return vrDisplay.requestPresent([{source: canvas}]).then(function () {
+        // Start stereo rendering in Unity.
+        console.log('Entered VR mode');
+        gameInstance.SendMessage('WebVRCameraSet', 'OnStartVR');
+      }).catch(function (err) {
+        console.error('Unable to enter VR mode:', err);
+      });
     });
   }
 
@@ -304,9 +320,15 @@
 
   function getVRDisplay () {
     if (!navigator.getVRDisplays) {
-      console.warn('Your browser does not support WebVR');
-      return;
+      var err = new Error('Your browser does not support WebVR');
+      console.warn(err.message);
+      return Promise.reject(err);
     }
+
+    if (frameData && vrDisplay) {
+      return Promise.resolve(vrDisplay);
+    }
+
     frameData = new VRFrameData();
 
     return navigator.getVRDisplays().then(function(displays) {
@@ -360,13 +382,39 @@
   window.requestAnimationFrame = onRequestAnimationFrame;
 
   window.addEventListener('resize', onResize, true);
-  window.addEventListener('vrdisplaypresentchange', onResize, false);
-  window.addEventListener('vrdisplayactivate', onRequestPresent, false);
+  window.addEventListener('vrdisplayactivate', function (evt) {
+    function removeSceneLoadedListener () {
+      document.removeEventListener('SceneLoaded', onSceneLoadedFromNavigation, false);
+    }
+    function onSceneLoadedFromNavigation () {
+      console.error('onSceneLoadedFromNavigation');
+      getVRDisplay().then(function (display) {
+        return display.requestPresent([{source: canvas}]).then(function () {
+          // Start stereo rendering in Unity.
+          console.log('Entered VR mode');
+          gameInstance.SendMessage('WebVRCameraSet', 'OnStartVR');
+        }).catch(function (err) {
+          console.error('Unable to enter VR mode:', err);
+        });
+      });
+    }
+    console.info(`[${evt.type}]`, evt.reason, evt.display ? `[display presenting? ${evt.display.isPresenting}]` : '[no display]');
+    if (evt.reason === 'navigation') {
+      document.addEventListener('SceneLoaded', onSceneLoadedFromNavigation, false);
+      // presentOnNavigation = true;
+      // getVRDisplay().then(onRequestPresent);
+      // navigateOnRequest = true;
+    }
+  }, false);
+
   window.addEventListener('vrdisplaydeactivate', onExitPresent, false);
   window.addEventListener('keyup', onKeyUp, false);
   document.addEventListener('UnityLoaded', onUnityLoaded, false);
   document.addEventListener('Unity', onUnity);
   enterVRButton.addEventListener('click', onToggleVR, false);
+  window.addEventListener('vrdisplaypresentchange', evt => {
+    onResize();
+  }, false);
 
   onResize();
 
