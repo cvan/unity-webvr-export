@@ -49,16 +49,15 @@
           if (!evt.display.capabilities || !evt.display.capabilities.canPresent) {
             throw new Error('VR display is not capable of presenting');
           }
-          return evt.display.requestPresent([{source: gameInstance.Module.canvas}]).then(function () {
-            gameInstance.vrDisplay = evt.display;
+          document.addEventListener('UnityLoaded', function () {
             // Start stereo rendering in Unity.
-            console.log('Entered VR mode');
-            onResize();
             gameInstance.SendMessage('WebVRCameraSet', 'OnStartVR');
             onResize();
-            setTimeout(() => {
-              onResize();
-            }, 4000);
+          });
+          return evt.display.requestPresent([{source: gameInstance.Module.canvas}]).then(function () {
+            gameInstance.vrDisplay = evt.display;
+            console.log('Entered VR mode');
+            onResize();
           }).catch(function (err) {
             console.error('Unable to enter VR mode:', err);
           });
