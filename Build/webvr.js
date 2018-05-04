@@ -11,7 +11,7 @@
   var noVRInstructions = document.getElementById('novr');
 
   var windowRaf = window.requestAnimationFrame;
-  var vrDisplay = gameInstance.vrDisplay || null;
+  var vrDisplay = null;
   var canvas = null;
   var frameData = null;
   var submitNextFrame = false;
@@ -25,6 +25,8 @@
   var vrGamepads = [];
   var toggleVRKeyName = '';
   var vrPolyfill = new WebVRPolyfill();
+  var unityLoaded = false;
+  var submittingFrames = false;
 
   if ('serviceWorker' in navigator && 'isSecureContext' in window && !window.isSecureContext) {
     console.warn('The site is insecure; Service Workers will not work and the site will not be recognized as a PWA');
@@ -46,6 +48,10 @@
     canvas = document.getElementById('#canvas');
     document.body.dataset.unityLoaded = 'true';
     onResize();
+    unityLoaded = true;
+    if (gameInstance.vrDisplay) {
+      vrDisplay = gameInstance.vrDisplay;
+    }
     return getVRDisplay().then(function (display) {
       console.log('Acquired VR display:', display);
     }).catch(function (err) {
@@ -69,6 +75,10 @@
         submitNextFrame = vrDisplay && vrDisplay.isPresenting;
         if (submitNextFrame) {
           vrDisplay.requestAnimationFrame(onAnimate);
+        }
+        if (!submittingFrames && unityLoaded) {
+          submittingFrames = true;
+          onRequestPresent();
         }
       }
 

@@ -49,13 +49,8 @@
           if (!evt.display.capabilities || !evt.display.capabilities.canPresent) {
             throw new Error('VR display is not capable of presenting');
           }
-          document.addEventListener('UnityLoaded', function () {
-            // Start stereo rendering in Unity.
-            gameInstance.SendMessage('WebVRCameraSet', 'OnStartVR');
-            onResize();
-          });
+          gameInstance.vrDisplay = evt.display;
           return evt.display.requestPresent([{source: gameInstance.Module.canvas}]).then(function () {
-            gameInstance.vrDisplay = evt.display;
             console.log('Entered VR mode');
             onResize();
           }).catch(function (err) {
@@ -73,6 +68,11 @@
           gameInstance.progress.style.width = (100 * progress) + '%';
           if (progress === 1) {
             document.dispatchEvent(new CustomEvent('UnityLoaded'));
+            setTimeout(() => {
+              console.log('progress done');
+              gameInstance.SendMessage('WebVRCameraSet', 'OnStartVR');
+              onResize();
+            }, 300);
           }
         }
       })();
