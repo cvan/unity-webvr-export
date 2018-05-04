@@ -38,6 +38,33 @@
           onProgress: unityProgress
         });
 
+        function onActivate (evt) {
+          console.info(`[${evt.type}]`, evt.reason, evt.display ? `[display presenting? ${evt.display.isPresenting}]` : '[no display]');
+          if (!evt.display) {
+            throw new Error('No "display" property found on event');
+          }
+          if (evt.reason !== 'navigation') {
+            return;
+          }
+          if (!evt.display.capabilities || !evt.display.capabilities.canPresent) {
+            throw new Error('VR display is not capable of presenting');
+          }
+          return evt.display.requestPresent([{source: gameInstance.Module.canvas}]).then(function () {
+            gameInstance.vrDisplay = evt.display;
+            // Start stereo rendering in Unity.
+            console.log('Entered VR mode');
+            onResize();
+            gameInstance.SendMessage('WebVRCameraSet', 'OnStartVR');
+            onResize();
+            setTimeout(() => {
+              onResize();
+            }, 4000);
+          }).catch(function (err) {
+            console.error('Unable to enter VR mode:', err);
+          });
+        }
+        window.addEventListener('vrdisplayactivate', onActivate);
+
         function unityProgress (gameInstance, progress) {
           if (!gameInstance.progress) {
             gameInstance.loader = document.getElementById('loader');
