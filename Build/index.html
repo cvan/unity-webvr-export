@@ -39,25 +39,31 @@
         });
 
         function onActivate (evt) {
-          console.info(`[${evt.type}]`, evt.reason, evt.display ? `[display presenting? ${evt.display.isPresenting}]` : '[no display]');
-          if (!evt.display) {
-            throw new Error('No "display" property found on event');
-          }
-          if (evt.reason !== 'navigation') {
-            return;
-          }
-          if (!evt.display.capabilities || !evt.display.capabilities.canPresent) {
-            throw new Error('VR display is not capable of presenting');
-          }
-          gameInstance.vrDisplay = evt.display;
-          return evt.display.requestPresent([{source: gameInstance.Module.canvas}]).then(function () {
-            console.log('Entered VR mode');
-            onResize();
-          }).catch(function (err) {
-            console.error('Unable to enter VR mode:', err);
+          return new Promise(function (resolve, reject) {
+            if (!evt.display) {
+              return reject(new Error('No "display" property found on event'));
+            }
+            if (evt.reason && evt.reason !== 'navigation') {
+              return reject(new Error('Unexpected "reason" (expected to be "navigation")'));
+            }
+            if (!evt.display.capabilities || !evt.display.capabilities.canPresent) {
+              return reject(new Error('VR display is not capable of presenting'));
+            }
+            gameInstance.vrDisplay = evt.display;
+            return evt.display.requestPresent([{source: gameInstance.Module.canvas}]).then(function () {
+              console.log('Entered VR mode');
+            }).catch(function (err) {
+              console.error('Unable to enter VR mode:', err);
+            });
           });
         }
         window.addEventListener('vrdisplayactivate', onActivate);
+
+        function onUnityLoaded () {
+          gameInstance.SendMessage('WebVRCameraSet', 'OnStartVR');
+          onResize();
+        }
+        document.addEventListener('UnityLoaded', onUnityLoaded);
 
         function unityProgress (gameInstance, progress) {
           if (!gameInstance.progress) {
@@ -68,11 +74,6 @@
           gameInstance.progress.style.width = (100 * progress) + '%';
           if (progress === 1) {
             document.dispatchEvent(new CustomEvent('UnityLoaded'));
-            setTimeout(() => {
-              console.log('progress done');
-              gameInstance.SendMessage('WebVRCameraSet', 'OnStartVR');
-              onResize();
-            }, 300);
           }
         }
       })();

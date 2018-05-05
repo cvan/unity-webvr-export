@@ -43,7 +43,6 @@
   }
 
   function onUnityLoaded () {
-    console.log('onUnityLoaded');
     MozillaResearch.telemetry.performance.measure('LoadingTime', 'LoadingStart');
     canvas = document.getElementById('#canvas');
     document.body.dataset.unityLoaded = 'true';
@@ -53,7 +52,7 @@
       vrDisplay = gameInstance.vrDisplay;
     }
     return getVRDisplay().then(function (display) {
-      console.log('Acquired VR display:', display);
+      vrDisplay = display;
     }).catch(function (err) {
       console.error('Error occurred upon scene load:\n', err);
     });
@@ -331,8 +330,6 @@
       return Promise.reject(err);
     }
 
-    console.log('[[[getVRDisplay]]]');
-
     frameData = new VRFrameData();
 
     function handleDisplay (display) {
@@ -340,8 +337,6 @@
       var hasPosition = false;
       var hasOrientation = false;
       var hasExternalDisplay = false;
-
-      vrDisplay = display;
 
       if (display) {
         canPresent = display.capabilities.canPresent;
