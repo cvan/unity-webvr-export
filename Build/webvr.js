@@ -78,12 +78,12 @@
       if (msg.detail === 'PostRender') {
         submitNextFrame = vrDisplay && vrDisplay.isPresenting;
         if (submitNextFrame) {
-          vrDisplay.requestAnimationFrame(onAnimate);
           if (!submittingFrames && unityLoaded) {
             submittingFrames = true;
             onResize();
             gameInstance.SendMessage('WebVRCameraSet', 'OnStartVR');
           }
+          vrDisplay.requestAnimationFrame(onAnimate);
         }
       }
 
@@ -148,29 +148,22 @@
   }
 
   function onAnimate () {
-    if (!vrDisplay && gameInstance.vrDisplay) {
+    if (!frameData) {
       frameData = new VRFrameData();
+    }
+    if (!vrDisplay && gameInstance.vrDisplay) {
       vrDisplay = gameInstance.vrDisplay;
     }
 
-    if (!vrDisplay || !vrDisplay.isPresenting) {
+    if (!vrDisplay) {
       windowRaf(onAnimate);
-    }
+    } else {
+      vrDisplay.requestAnimationFrame(onAnimate);
 
-    if (vrDisplay) {
-      // When this is called for the first time, it will be using the standard
-      // `window.requestAnimationFrame` API, which will throw a Console warning when we call
-      // `vrDisplay.submitFrame(…)`. So for the first frame that this is called, we will
-      // abort early and request a new frame from the VR display instead.
-      if (vrDisplay.isPresenting && !submitNextFrame) {
-        submitNextFrame = true;
-        return vrDisplay.requestAnimationFrame(onAnimate);
-      }
+      vrDisplay.getFrameData(frameData);
 
       // Check for polyfill so that we can utilize its mouse-look controls.
       if (vrDisplay.isPresenting || isPolyfilled(vrDisplay)) {
-        vrDisplay.getFrameData(frameData);
-
         // convert view and projection matrices for use in Unity.
         mat4.copy(leftProjectionMatrix, frameData.leftProjectionMatrix);
         mat4.transpose(leftProjectionMatrix, leftProjectionMatrix);
@@ -245,17 +238,12 @@
         };
 
         gameInstance.SendMessage('WebVRCameraSet', 'OnWebVRData', JSON.stringify(vrData));
-      }
 
-      if (!vrDisplay.isPresenting || isPolyfilled(vrDisplay)) {
-        submitNextFrame = false;
-      }
-      if (submitNextFrame) {
         vrDisplay.submitFrame();
       }
-
-      updateStatus();
     }
+
+    updateStatus();
   }
 
   function onResize() {
@@ -322,7 +310,6 @@
   // such that Unity renders at the VR display's proper framerate.
   function onRequestAnimationFrame(cb) {
     if (vrDisplay && vrDisplay.isPresenting) {
-      submitNextFrame = true;
       return vrDisplay.requestAnimationFrame(cb);
     } else {
       return windowRaf(cb);
